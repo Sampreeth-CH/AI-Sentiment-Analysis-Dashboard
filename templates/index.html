@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+  <head>
+    <title>AI Sentiment Analysis Dashboard</title>
+
+    <!doctype html>
+<html>
+  <head>
+    <title>AI Sentiment Analysis Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  body {
+    font-family: Arial;
+    background: #f4f6f9;
+    margin: 0;
+  }
+
+  .header {
+    background: #2c3e50;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+  }
+
+  .container {
+    width: 90%;
+    margin: auto;
+    margin-top: 20px;
+  }
+
+  .card {
+    background: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  textarea {
+    width: 100%;
+    height: 100px;
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  .result {
+    margin-top: 15px;
+    font-size: 18px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .stat {
+    font-size: 20px;
+    margin: 8px 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+
+  table th {
+    background: #eee;
+  }
+</style>
+<div class="container">
+  <div class="card">
+    <h3>Enter Review</h3>
+
+    <textarea id="review"></textarea>
+
+    <button onclick="predict()">Analyze Sentiment</button>
+
+    <div class="result" id="result"></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Sentiment Distribution</h3>
+      <canvas id="pieChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Sentiment Count</h3>
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Statistics</h3>
+
+    <p class="stat">✔ Positive Reviews: <span id="pos">0</span></p>
+    <p class="stat">❌ Negative Reviews: <span id="neg">0</span></p>
+
+    <p class="stat">⭐ Overall Sentiment Score: <span id="overallScore">0</span></p>
+    <p class="stat">📊 Overall Sentiment: <span id="overallLabel">Neutral</span></p>
+  </div>
+
+  <div class="card">
+    <h3>Recent Reviews</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Review</th>
+          <th>Sentiment</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+
+      <tbody id="tableData"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let posCount = 0
+  let negCount = 0
+  let totalScore = 0
+  let totalReviews = 0
+
+  const pieChart = new Chart(document.getElementById("pieChart"), {
+    type: "pie",
+    data: {
+      labels: ["Positive", "Negative"],
+      datasets: [
+        {
+          data: [0, 0],
+        },
+      ],
+    },
+  })
+
+  const barChart = new Chart(document.getElementById("barChart"), {
+    type: "bar",
+    data: {
+      labels: ["Positive", "Negative"],
+      datasets: [
+        {
+          label: "Reviews",
+          data: [0, 0],
+        },
+      ],
+    },
+  })
+
+  function updateDashboard() {
+    document.getElementById("pos").innerText = posCount
+    document.getElementById("neg").innerText = negCount
+
+    pieChart.data.datasets[0].data = [posCount, negCount]
+    pieChart.update()
+
+    barChart.data.datasets[0].data = [posCount, negCount]
+    barChart.update()
+
+    let avgScore = totalScore / totalReviews
+    document.getElementById("overallScore").innerText = avgScore.toFixed(2)
+
+    if (posCount > negCount) {
+      document.getElementById("overallLabel").innerText = "Positive"
+    } else {
+      document.getElementById("overallLabel").innerText = "Negative"
+    }
+  }
+
+  function loadReviews() {
+    fetch("http://127.0.0.1:5000/reviews")
+      .then((res) => res.json())
+      .then((data) => {
+        data.forEach((item) => {
+          let review = item.review
+          let sentiment = item.sentiment
+          let score = item.score
+
+          let label = ""
+
+          if (sentiment == 1) {
+            label = "✔ Positive"
+            posCount++
+          } else {
+            label = "❌ Negative"
+            negCount++
+          }
+
+          totalScore += score
+          totalReviews++
+
+          let row =
+            "<tr><td>" +
+            review +
+            "</td><td>" +
+            label +
+            "</td><td>" +
+            score.toFixed(2) +
+            "</td></tr>"
+
+          document.getElementById("tableData").innerHTML += row
+        })
+
+        updateDashboard()
+      })
+  }
+
+  function predict() {
+    let review = document.getElementById("review").value
+
+    fetch("http://127.0.0.1:5000/predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        review_text: review,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        let sentiment = data.sentiment
+        let score = data.score
+
+        let label = ""
+
+        if (sentiment == 1) {
+          label = "✔ Positive"
+          posCount++
+        } else {
+          label = "❌ Negative"
+          negCount++
+        }
+
+        totalScore += score
+        totalReviews++
+
+        document.getElementById("result").innerHTML =
+          "Sentiment: " + label + " | Confidence: " + score.toFixed(2)
+
+        let row =
+          "<tr><td>" +
+          review +
+          "</td><td>" +
+          label +
+          "</td><td>" +
+          score.toFixed(2) +
+          "</td></tr>"
+
+        document.getElementById("tableData").innerHTML += row
+
+        updateDashboard()
+      })
+  }
+
+  window.onload = function () {
+    loadReviews()
+  }
+</script>
+  </body>
+</html>
+
+  </body>
+</html>
